@@ -26,7 +26,14 @@ class CarInterface(CarInterfaceBase):
     # 2026+ Model Y (Juniper) runs a second gen HW4 stack: DAS_status is at 0x399 instead of 0x39b,
     # UI_warning (blinkers, buckle switch & doors) isn't sent at all, and DAS_settings is on the
     # party bus (it's only sent sporadically on the autopilot party bus, too rarely to parse)
-    if 0x399 in fingerprint[CANBUS.autopilot_party]:
+    # The Japan 2026 EPS firmwares only exist on HW4 gen2 cars; use them as a fallback in case
+    # DAS_statusGen2 (0x399) was not seen during the short CAN fingerprint scan
+    gen2_eps_firmwares = (b'TeMYG4_Main_0.0.0 (92),Y4OC003.11.2',
+                          b'TeMYG4_Main_0.0.0 (87),DL005.08.3',
+                          b'TeMYG4_Main_0.0.0 (92),Y4003.10.2')
+    is_gen2 = 0x399 in fingerprint[CANBUS.autopilot_party] or \
+      any(fw.ecu == structs.CarParams.CarFw.Ecu.eps and fw.fwVersion in gen2_eps_firmwares for fw in car_fw)
+    if is_gen2:
       ret.flags |= TeslaFlags.HW4_GEN2.value
       ret.safetyConfigs[0].safetyParam |= TeslaSafetyFlags.HW4_GEN2.value
 
