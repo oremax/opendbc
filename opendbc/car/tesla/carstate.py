@@ -151,6 +151,10 @@ class CarState(CarStateBase):
     }
 
     if CP.flags & TeslaFlags.HW4_GEN2_VEHICLE_BUS:
-      parsers[Bus.adas] = CANParser(DBC[CP.carFingerprint][Bus.adas], [], CANBUS.vehicle)
+      # The VEHICLE bus messages are only used for blinkers/seatbelt. They must not gate
+      # canValid: on cars where this bus is not continuously active, requiring them makes
+      # canValid drop permanently (NaN frequency = ignore_alive in CANParser)
+      parsers[Bus.adas] = CANParser(DBC[CP.carFingerprint][Bus.adas],
+                                    [("VCFRONT_lighting", float('nan')), ("SeatBeltStatus", float('nan'))], CANBUS.vehicle)
 
     return parsers
