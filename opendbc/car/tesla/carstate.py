@@ -105,7 +105,7 @@ class CarState(CarStateBase):
       if self.CP.flags & TeslaFlags.HW4_GEN2_VEHICLE_BUS:
         cp_vehicle = can_parsers[Bus.adas]
         ret.leftBlinker = cp_vehicle.vl["VCFRONT_lighting"]["VCFRONT_indicatorLeftRequest"] != 0
-        ret.rightBlinker = cp_vehicle.vl["VCFRONT_indicatorRightRequest"] != 0
+        ret.rightBlinker = cp_vehicle.vl["VCFRONT_lighting"]["VCFRONT_indicatorRightRequest"] != 0
         if not HW4_GEN2_IGNORE_SEATBELT:
           ret.seatbeltUnlatched = cp_vehicle.vl["SeatBeltStatus"]["driverBuckleStatus"] != 1
     else:
