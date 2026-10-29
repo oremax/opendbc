@@ -10,6 +10,14 @@ from opendbc.sunnypilot.car.tesla.carstate_ext import CarStateExt
 ButtonType = structs.CarState.ButtonEvent.Type
 STEERING_KNUCKLE_ARM_LENGTH_M = 0.11
 
+# HW4 gen2 の SeatBeltStatus (0x40A) bit 3 を運転席として読んでいるが、これは左前席の
+# ビットらしく、右ハンドル車では助手席を留めないと解除されない。ベルト未装着なら車体側が
+# 警報を出すので、openpilot 側の判定を切り離して常に装着扱いにする (from programanichiro/openpilot)。
+#   True  : 判定しない（右ハンドル車でもエンゲージできる）
+#   False : 0x40A bit 3 をそのまま読む（upstream と同じ挙動）
+# 正しいビットが判明したら DBC に信号を足して False に戻す。
+HW4_GEN2_IGNORE_SEATBELT = True
+
 
 class CarState(CarStateBase, CarStateExt):
   def __init__(self, CP, CP_SP):
@@ -133,7 +141,8 @@ class CarState(CarStateBase, CarStateExt):
         cp_vehicle = can_parsers[Bus.adas]
         ret.leftBlinker = cp_vehicle.vl["VCFRONT_lighting"]["VCFRONT_indicatorLeftRequest"] != 0
         ret.rightBlinker = cp_vehicle.vl["VCFRONT_lighting"]["VCFRONT_indicatorRightRequest"] != 0
-        ret.seatbeltUnlatched = cp_vehicle.vl["SeatBeltStatus"]["driverBuckleStatus"] != 1
+        if not HW4_GEN2_IGNORE_SEATBELT:
+          ret.seatbeltUnlatched = cp_vehicle.vl["SeatBeltStatus"]["driverBuckleStatus"] != 1
     else:
       # Doors
       ret.doorOpen = cp_party.vl["UI_warning"]["anyDoorOpen"] == 1
@@ -178,7 +187,7 @@ class CarState(CarStateBase, CarStateExt):
 
   @staticmethod
   def get_can_parsers(CP, CP_SP):
-    return {
+    parsers = {
       Bus.party: CANParser(DBC[CP.carFingerprint][Bus.party], [], CANBUS.party),
       Bus.ap_party: CANParser(DBC[CP.carFingerprint][Bus.party], [], CANBUS.autopilot_party),
       **CarStateExt.get_parser(CP, CP_SP),
