@@ -57,6 +57,8 @@ FW_VERSIONS = {
       b'TeMYG4_SingleECU_0.0.0 (33),Y4S002.26',
       b'TeMYG4_Main_0.0.0 (87),Y4003.09.3',
       b'TeMYG4_Main_0.0.0 (92),Y4003.10.2',
+      b'TeMYG4_Main_0.0.0 (87),DL005.08.3', #Japan 2026 model Y
+      b'TeMYG4_Main_0.0.0 (92),Y4OC003.11.2', #Japan 2026 model Y
     ],
   },
   CAR.TESLA_MODEL_X: {
