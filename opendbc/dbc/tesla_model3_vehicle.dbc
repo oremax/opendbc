@@ -236,6 +236,19 @@ BO_ 1013 VCFRONT_lighting: 8 VEH
  SG_ VCFRONT_indicatorRightRequest : 2|2@1+ (1,0) [0|2] ""  Receiver
  SG_ VCFRONT_indicatorLeftRequest : 0|2@1+ (1,0) [0|2] ""  Receiver
 
+BO_ 929 VCFRONT_vehicleStatus: 8 VEH
+ SG_ VCFRONT_vehicleStatusIndex M : 0|2@1+ (1,0) [0|3] ""  Receiver
+ SG_ VCFRONT_driverIsLeaving m0 : 28|1@1+ (1,0) [0|1] ""  Receiver
+ SG_ VCFRONT_driverBuckleStatus m0 : 30|1@1+ (1,0) [0|1] ""  Receiver
+ SG_ VCFRONT_driverDoorStatus m0 : 31|1@1+ (1,0) [0|1] ""  Receiver
+ SG_ VCFRONT_driverUnbuckled m0 : 32|2@1+ (1,0) [0|3] ""  Receiver
+ SG_ VCFRONT_passengerUnbuckled m0 : 34|2@1+ (1,0) [0|3] ""  Receiver
+ SG_ VCFRONT_2RowLeftUnbuckled m0 : 36|2@1+ (1,0) [0|3] ""  Receiver
+ SG_ VCFRONT_2RowCenterUnbuckled m0 : 38|2@1+ (1,0) [0|3] ""  Receiver
+ SG_ VCFRONT_2RowRightUnbuckled m0 : 40|2@1+ (1,0) [0|3] ""  Receiver
+ SG_ VCFRONT_vehicleStatusCounter : 52|4@1+ (1,0) [0|15] ""  Receiver
+ SG_ VCFRONT_vehicleStatusChecksum : 56|8@1+ (1,0) [0|255] ""  Receiver
+
 BO_ 1034 SeatBeltStatus: 8 XXX
  SG_ driverBuckleStatus : 3|1@1+ (1,0) [0|1] ""  Receiver
 

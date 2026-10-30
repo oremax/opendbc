@@ -5,13 +5,10 @@ from opendbc.car.common.conversions import Conversions as CV
 from opendbc.car.interfaces import CarStateBase
 from opendbc.car.tesla.values import DBC, CANBUS, GEAR_MAP, STEER_THRESHOLD, TeslaFlags
 
-# HW4 gen2 の SeatBeltStatus (0x40A) bit 3 を運転席として読んでいるが、これは左前席の
-# ビットらしく、右ハンドル車では助手席を留めないと解除されない。ベルト未装着なら車体側が
-# 警報を出すので、openpilot 側の判定を切り離して常に装着扱いにする (from programanichiro/openpilot)。
-#   True  : 判定しない（右ハンドル車でもエンゲージできる）
-#   False : 0x40A bit 3 をそのまま読む（upstream と同じ挙動）
-# 正しいビットが判明したら DBC に信号を足して False に戻す。
-HW4_GEN2_IGNORE_SEATBELT = True
+# HW4 gen2 の運転席バックルは、VEHICLE バスの VCFRONT_vehicleStatus (0x3A1、多重化) の
+# ページ0にある VCFRONT_driverBuckleStatus から読む (fix by lukasloetkolben/openpilot、
+# 2026-10-30 に日本の右ハンドル 2026 Model Y の実車で確認済み)。
+# SeatBeltStatus (0x40A) bit 3 は左前席のビットで運転席ではないため使わない。
 
 
 class CarState(CarStateBase):
@@ -26,6 +23,7 @@ class CarState(CarStateBase):
 
     self.hands_on_level = 0
     self.das_control = None
+    self.seatbelt_unlatched = True
 
   def update_autopark_state(self, autopark_state: str, cruise_enabled: bool):
     autopark_now = autopark_state in ("ACTIVE", "COMPLETE", "SELFPARK_STARTED")
@@ -106,8 +104,10 @@ class CarState(CarStateBase):
         cp_vehicle = can_parsers[Bus.adas]
         ret.leftBlinker = cp_vehicle.vl["VCFRONT_lighting"]["VCFRONT_indicatorLeftRequest"] != 0
         ret.rightBlinker = cp_vehicle.vl["VCFRONT_lighting"]["VCFRONT_indicatorRightRequest"] != 0
-        if not HW4_GEN2_IGNORE_SEATBELT:
-          ret.seatbeltUnlatched = cp_vehicle.vl["SeatBeltStatus"]["driverBuckleStatus"] != 1
+        # VCFRONT_vehicleStatus is multiplexed, the restraint signals are on page 0
+        if cp_vehicle.vl["VCFRONT_vehicleStatus"]["VCFRONT_vehicleStatusIndex"] == 0:
+          self.seatbelt_unlatched = cp_vehicle.vl["VCFRONT_vehicleStatus"]["VCFRONT_driverBuckleStatus"] != 1
+        ret.seatbeltUnlatched = self.seatbelt_unlatched
     else:
       # Doors
       ret.doorOpen = cp_party.vl["UI_warning"]["anyDoorOpen"] == 1
@@ -155,6 +155,6 @@ class CarState(CarStateBase):
       # canValid: on cars where this bus is not continuously active, requiring them makes
       # canValid drop permanently (NaN frequency = ignore_alive in CANParser)
       parsers[Bus.adas] = CANParser(DBC[CP.carFingerprint][Bus.adas],
-                                    [("VCFRONT_lighting", float('nan')), ("SeatBeltStatus", float('nan'))], CANBUS.vehicle)
+                                    [("VCFRONT_lighting", float('nan')), ("VCFRONT_vehicleStatus", float('nan'))], CANBUS.vehicle)
 
     return parsers
