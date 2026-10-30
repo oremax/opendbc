@@ -431,6 +431,15 @@ class TestTeslaLongitudinalSafety(TestTeslaSafetyBase):
     self.assertFalse(self._tx(self._long_control_msg(set_speed=0, accel_limits=(-0.1, -0.1))))
 
 
+class TestTeslaGen2StockSafety(TestTeslaStockSafety):
+  # HW4 gen2 (2026+ Model Y): no UI_warning (0x311) on this stack, DAS messages move buses
+  SAFETY_PARAM = TeslaSafetyFlags.HW4_GEN2
+
+
+class TestTeslaGen2LongitudinalSafety(TestTeslaLongitudinalSafety):
+  SAFETY_PARAM = TeslaSafetyFlags.HW4_GEN2 | TeslaSafetyFlags.LONG_CONTROL
+
+
 class TestTeslaIgnition(common.SafetyTestBase):
   DBC = "tesla_model3_party"
   SAFETY_MODEL = None
