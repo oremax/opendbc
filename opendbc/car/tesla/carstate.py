@@ -5,13 +5,13 @@ from opendbc.car.common.conversions import Conversions as CV
 from opendbc.car.interfaces import CarStateBase
 from opendbc.car.tesla.values import DBC, CANBUS, GEAR_MAP, STEER_THRESHOLD, TeslaFlags
 
-# HW4 gen2 の SeatBeltStatus (0x40A) bit 3 を運転席として読んでいるが、これは左前席の
-# ビットらしく、右ハンドル車では助手席を留めないと解除されない。ベルト未装着なら車体側が
-# 警報を出すので、openpilot 側の判定を切り離して常に装着扱いにする (from programanichiro/openpilot)。
-#   True  : 判定しない（右ハンドル車でもエンゲージできる）
-#   False : 0x40A bit 3 をそのまま読む（upstream と同じ挙動）
-# 正しいビットが判明したら DBC に信号を足して False に戻す。
-HW4_GEN2_IGNORE_SEATBELT = True
+# HW4 gen2 の SeatBeltStatus (0x40A) bit 3 は運転席バックルのビット。
+# 以前は左前席のビットとされ、右ハンドル車向けに判定を切り離していたが (from programanichiro/openpilot)、
+# 2026-10-30 に日本の右ハンドル 2026 Model Y の rlog で、運転席ベルトの着脱に
+# bit 3 が連動することを実証したため、そのまま読む (upstream と同じ挙動)。
+#   True  : 判定しない（常に装着扱い）
+#   False : 0x40A bit 3 をそのまま読む
+HW4_GEN2_IGNORE_SEATBELT = False
 
 
 class CarState(CarStateBase):
