@@ -39,7 +39,7 @@ class TeslaCarDocsHW4(CarDocs):
 @dataclass
 class TeslaCarDocsHW4Gen2(CarDocs):
   package: str = "All"
-  car_parts: CarParts = field(default_factory=CarParts.common([CarHarness.tesla_c]))
+  car_parts: CarParts = field(default_factory=CarParts.common([CarHarness.tesla_b]))
   footnotes: list[Enum] = field(default_factory=lambda: [Footnote.HW_TYPE, Footnote.SETUP])
 
 
