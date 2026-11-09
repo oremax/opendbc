@@ -6,6 +6,17 @@ from opendbc.car.tesla.values import TeslaSafetyFlags, TeslaFlags, CANBUS, CAR, 
 from opendbc.car.tesla.radar_interface import RadarInterface, RADAR_START_ADDR
 
 
+def _steer_no_disengage_enabled() -> bool:
+  # Optional user toggle: steering override pauses lateral control instead of disengaging
+  # (Toyota-style). Read from Params so the default stays upstream behavior; opendbc also
+  # runs standalone (tests/docs), where openpilot's Params is not importable.
+  try:
+    from openpilot.common.params import Params
+    return Params().get_bool("TeslaSteerNoDisengage")
+  except ImportError:
+    return False
+
+
 class CarInterface(CarInterfaceBase):
   CarState = CarState
   CarController = CarController
@@ -16,6 +27,10 @@ class CarInterface(CarInterfaceBase):
     ret.brand = "tesla"
 
     ret.safetyConfigs = [get_safety_config(structs.CarParams.SafetyModel.tesla)]
+
+    if _steer_no_disengage_enabled():
+      ret.flags |= TeslaFlags.STEER_NO_DISENGAGE.value
+      ret.safetyConfigs[0].safetyParam |= TeslaSafetyFlags.STEER_NO_DISENGAGE.value
 
     ret.steerLimitTimer = 0.4
     ret.steerActuatorDelay = 0.1

@@ -392,6 +392,7 @@ typedef struct {
   bool subaru_pg_reversed_driver_torque;
 
   bool tesla_longitudinal;
+  bool tesla_steer_no_disengage;
 
   bool toyota_secoc;
   bool toyota_alt_brake;

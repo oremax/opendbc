@@ -126,6 +126,8 @@ class CarControllerParams:
 class TeslaSafetyFlags(IntFlag):
   LONG_CONTROL = 1
   HW4_GEN2 = 4
+  # steering override never disengages (Toyota-style); set from the TeslaSteerNoDisengage param
+  STEER_NO_DISENGAGE = 8
 
   # deprecated flags
   DAS_STEERING_3_BIT_DEPRECATED = 2
@@ -138,6 +140,8 @@ class TeslaFlags(IntFlag):
   HW4_GEN2 = 8
   # blinkers and the seatbelt buckle are only on the VEHICLE bus, which needs its CAN lines tapped
   HW4_GEN2_VEHICLE_BUS = 16
+  # steering override never disengages (Toyota-style); set from the TeslaSteerNoDisengage param
+  STEER_NO_DISENGAGE = 32
 
   # deprecated flags
   # old 2-bit FW is now dashcammed
