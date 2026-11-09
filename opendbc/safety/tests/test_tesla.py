@@ -440,6 +440,29 @@ class TestTeslaGen2LongitudinalSafety(TestTeslaLongitudinalSafety):
   SAFETY_PARAM = TeslaSafetyFlags.HW4_GEN2 | TeslaSafetyFlags.LONG_CONTROL
 
 
+class TeslaSteerNoDisengageBase:
+  # With STEER_NO_DISENGAGE, neither a high hands on level nor a high angle rate
+  # fault from overriding may disengage; controls stay allowed throughout
+  def test_steering_wheel_disengage(self):
+    for hands_on_level in range(4):
+      for eac_status in range(8):
+        for eac_error_code in range(16):
+          self.safety.set_controls_allowed(True)
+
+          self.assertTrue(self._rx(self._angle_meas_msg(0, hands_on_level=hands_on_level, eac_status=eac_status,
+                                                        eac_error_code=eac_error_code)))
+          self.assertTrue(self.safety.get_controls_allowed())
+          self.assertFalse(self.safety.get_steering_disengage_prev())
+
+
+class TestTeslaSteerNoDisengageSafety(TeslaSteerNoDisengageBase, TestTeslaStockSafety):
+  SAFETY_PARAM = TeslaSafetyFlags.STEER_NO_DISENGAGE
+
+
+class TestTeslaGen2SteerNoDisengageSafety(TeslaSteerNoDisengageBase, TestTeslaGen2StockSafety):
+  SAFETY_PARAM = TeslaSafetyFlags.HW4_GEN2 | TeslaSafetyFlags.STEER_NO_DISENGAGE
+
+
 class TestTeslaIgnition(common.SafetyTestBase):
   DBC = "tesla_model3_party"
   SAFETY_MODEL = None

@@ -4,6 +4,8 @@
 
 static bool tesla_longitudinal = false;
 static bool tesla_stock_aeb = false;
+// Steering override never disengages (Toyota-style); set via safety param from openpilot
+static bool tesla_steer_no_disengage = false;
 
 // Only rising edges while controls are not allowed are considered for these systems:
 // TODO: Only LKAS (non-emergency) is currently supported since we've only seen it
@@ -105,7 +107,8 @@ static void tesla_rx_hook(const CANPacket_t *msg) {
     const int eac_error_code = msg->data[2] >> 4;  // EPAS3S_eacErrorCode
 
     // Disengage on normal user override, or if high angle rate fault from user overriding extremely quickly
-    steering_disengage = (hands_on_level >= 3) || ((eac_status == 0) && (eac_error_code == 9));
+    // With tesla_steer_no_disengage, steering override never disengages; brake/gas disengages are unaffected
+    steering_disengage = !tesla_steer_no_disengage && ((hands_on_level >= 3) || ((eac_status == 0) && (eac_error_code == 9)));
   }
 
   // Vehicle speed (DI_speed)
@@ -325,6 +328,9 @@ static safety_config tesla_init(uint16_t param) {
 
   const uint16_t TESLA_FLAG_HW4_GEN2 = 4;
   const bool tesla_hw4_gen2 = GET_FLAG(param, TESLA_FLAG_HW4_GEN2);
+
+  const uint16_t TESLA_FLAG_STEER_NO_DISENGAGE = 8;
+  tesla_steer_no_disengage = GET_FLAG(param, TESLA_FLAG_STEER_NO_DISENGAGE);
 
   SAFETY_UNUSED(param);
 #ifdef ALLOW_DEBUG
