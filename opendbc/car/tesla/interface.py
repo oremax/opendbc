@@ -17,6 +17,16 @@ def _steer_no_disengage_enabled() -> bool:
     return False
 
 
+def _coop_steering_enabled() -> bool:
+  # Optional user toggle: send steering commands as LANE_KEEP_ASSIST (cooperative steering,
+  # like stock FSD) instead of ANGLE_CONTROL. Same Params pattern as above.
+  try:
+    from openpilot.common.params import Params
+    return Params().get_bool("TeslaCoopSteering")
+  except ImportError:
+    return False
+
+
 class CarInterface(CarInterfaceBase):
   CarState = CarState
   CarController = CarController
@@ -31,6 +41,9 @@ class CarInterface(CarInterfaceBase):
     if _steer_no_disengage_enabled():
       ret.flags |= TeslaFlags.STEER_NO_DISENGAGE.value
       ret.safetyConfigs[0].safetyParam |= TeslaSafetyFlags.STEER_NO_DISENGAGE.value
+
+    if _coop_steering_enabled():
+      ret.flags |= TeslaFlags.COOP_STEERING.value
 
     ret.steerLimitTimer = 0.4
     ret.steerActuatorDelay = 0.1

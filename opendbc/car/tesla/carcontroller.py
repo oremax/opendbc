@@ -25,6 +25,9 @@ class CarController(CarControllerBase):
     # Vehicle model used for lateral limiting
     self.VM = VehicleModel(get_safety_CP())
 
+    # Cooperative steering: LANE_KEEP_ASSIST commands instead of ANGLE_CONTROL
+    self.control_type = 2 if (CP.flags & TeslaFlags.COOP_STEERING) else 1
+
   def update(self, CC, CS, now_nanos):
     actuators = CC.actuators
     can_sends = []
@@ -41,7 +44,7 @@ class CarController(CarControllerBase):
       self.apply_angle_last = apply_steer_angle_limits_vm(actuators.steeringAngleDeg, self.apply_angle_last, CS.out.vEgoRaw, CS.out.steeringAngleDeg,
                                                           lat_active, CarControllerParams, self.VM)
 
-      can_sends.append(self.tesla_can.create_steering_control(self.apply_angle_last, lat_active))
+      can_sends.append(self.tesla_can.create_steering_control(self.apply_angle_last, lat_active, self.control_type))
 
     if self.frame % 10 == 0:
       can_sends.append(self.tesla_can.create_steering_allowed())

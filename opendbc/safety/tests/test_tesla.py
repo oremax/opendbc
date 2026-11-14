@@ -252,12 +252,36 @@ class TestTeslaSafetyBase(common.CarSafetyTest, common.AngleSteeringSafetyTest, 
       self.assertEqual(self.LONGITUDINAL, self._tx(self._long_control_msg(0, acc_state=self.acc_states["ACC_ON"])))
 
   def test_steering_control_type(self):
-    # Only angle control is allowed (no LANE_KEEP_ASSIST, EMERGENCY_LANE_KEEP, or FSD)
+    # ANGLE_CONTROL and LANE_KEEP_ASSIST (cooperative steering) are allowed
+    # (no EMERGENCY_LANE_KEEP or FSD)
     self.safety.set_controls_allowed(True)
     for steer_control_type in range(8):
       should_tx = steer_control_type in (self.steer_control_types["NONE"],
-                                         self.steer_control_types["ANGLE_CONTROL"])
+                                         self.steer_control_types["ANGLE_CONTROL"],
+                                         self.steer_control_types["LANE_KEEP_ASSIST"])
       self.assertEqual(should_tx, self._tx(self._angle_cmd_msg(0, state=steer_control_type)))
+
+  def test_lateral_limits_apply_to_lkas(self):
+    # LANE_KEEP_ASSIST is held to the same VM angle checks as ANGLE_CONTROL
+    lkas = self.steer_control_types["LANE_KEEP_ASSIST"]
+    speed = 20
+    # match DI_vehicleSpeed rounding on CAN
+    speed = round_speed(away_round(speed / 0.08 * 3.6) * 0.08 / 3.6)
+    self.safety.set_controls_allowed(True)
+    self._reset_speed_measurement(speed + 1)  # safety fudges the speed
+
+    self.assertTrue(self._tx(self._angle_cmd_msg(0, lkas)))
+
+    # Stay within limits
+    max_angle_delta = round_angle(get_max_angle_delta_vm(speed, self.VM, CarControllerParams), 0)
+    self.assertTrue(self._tx(self._angle_cmd_msg(max_angle_delta, lkas)))
+
+    # Back to 0
+    self.assertTrue(self._tx(self._angle_cmd_msg(0, lkas)))
+
+    # Inject too high a rate: blocked, same as ANGLE_CONTROL
+    max_angle_delta = round_angle(get_max_angle_delta_vm(speed, self.VM, CarControllerParams), 1)
+    self.assertFalse(self._tx(self._angle_cmd_msg(max_angle_delta, lkas)))
 
   def test_stock_lkas_passthrough(self):
     # TODO: make these generic passthrough tests

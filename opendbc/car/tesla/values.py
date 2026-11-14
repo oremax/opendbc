@@ -142,6 +142,9 @@ class TeslaFlags(IntFlag):
   HW4_GEN2_VEHICLE_BUS = 16
   # steering override never disengages (Toyota-style); set from the TeslaSteerNoDisengage param
   STEER_NO_DISENGAGE = 32
+  # send steering commands as LANE_KEEP_ASSIST instead of ANGLE_CONTROL (cooperative steering);
+  # set from the TeslaCoopSteering param
+  COOP_STEERING = 64
 
   # deprecated flags
   # old 2-bit FW is now dashcammed
