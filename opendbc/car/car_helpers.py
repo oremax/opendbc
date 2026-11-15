@@ -177,7 +177,14 @@ def get_car(can_recv: CanRecvCallable, can_send: CanSendCallable, set_obd_multip
   CP.fingerprintSource = source
   CP.fuzzyFingerprint = not exact_match
 
-  return interfaces[CP.carFingerprint](CP)
+  # CarParamsSP (sunnypilot MADS port): built alongside CarParams and attached to
+  # the interface and its CarState, whose constructors stay CP-only in this fork.
+  CP_SP = CarInterface.get_params_sp(CP, candidate, fingerprints, car_fw, alpha_long_allowed, is_release, docs=False)
+  ci = interfaces[CP.carFingerprint](CP)
+  ci.CP_SP = CP_SP
+  ci.CS.CP_SP = CP_SP
+
+  return ci
 
 
 def get_demo_car_params():

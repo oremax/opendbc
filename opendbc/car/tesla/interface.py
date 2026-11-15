@@ -4,6 +4,7 @@ from opendbc.car.tesla.carcontroller import CarController
 from opendbc.car.tesla.carstate import CarState
 from opendbc.car.tesla.values import TeslaSafetyFlags, TeslaFlags, CANBUS, CAR, DBC
 from opendbc.car.tesla.radar_interface import RadarInterface, RADAR_START_ADDR
+from opendbc.sunnypilot.car.tesla.values import TeslaFlagsSP, TeslaSafetyFlagsSP
 
 
 def _steer_no_disengage_enabled() -> bool:
@@ -14,18 +15,6 @@ def _steer_no_disengage_enabled() -> bool:
     from openpilot.common.params import Params
     return Params().get_bool("TeslaSteerNoDisengage")
   except ImportError:
-    return False
-
-
-def _mads_enabled() -> bool:
-  # The fork's MADS toggle (mici Toggles panel) stores its state in
-  # /data/steer_always.txt; the same file drives controlsd's latActive through
-  # /dev/shm. Mirror it here so the panda only allows lateral control in cruise
-  # STANDBY when the user has MADS on. Any read failure means off (stock behavior).
-  try:
-    with open('/data/steer_always.txt') as f:
-      return int(f.read().strip() or 0) >= 1
-  except Exception:
     return False
 
 
@@ -56,9 +45,6 @@ class CarInterface(CarInterfaceBase):
 
     if _coop_steering_enabled():
       ret.flags |= TeslaFlags.COOP_STEERING.value
-
-    if _mads_enabled():
-      ret.safetyConfigs[0].safetyParam |= TeslaSafetyFlags.MADS.value
 
     ret.steerLimitTimer = 0.4
     ret.steerActuatorDelay = 0.1
@@ -105,5 +91,16 @@ class CarInterface(CarInterfaceBase):
 
     ret.dashcamOnly = (candidate in (CAR.TESLA_MODEL_X,) or  # dashcam only, pending find invalidLkasSetting signal
                        (not das_steering_3_bit and not docs))  # the car's software needs to be updated
+
+    return ret
+
+  @staticmethod
+  def _get_params_sp(stock_cp: structs.CarParams, ret: structs.CarParamsSP, candidate, fingerprint: dict[int, dict[int, int]],
+                     car_fw: list[structs.CarParams.CarFw], alpha_long: bool, is_release_sp: bool, docs: bool) -> structs.CarParamsSP:
+    # UI_status2 (0x3DF) on the vehicle bus means the multi-finger infotainment
+    # touch signal is available for the MADS screen button (sunnypilot detection)
+    if 0x3DF in fingerprint[CANBUS.vehicle]:
+      ret.flags |= TeslaFlagsSP.HAS_VEHICLE_BUS.value
+      ret.safetyParam |= TeslaSafetyFlagsSP.HAS_VEHICLE_BUS
 
     return ret

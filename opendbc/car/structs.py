@@ -14,3 +14,17 @@ CarStateT = capnp.lib.capnp._StructModule
 RadarDataT = capnp.lib.capnp._StructModule
 CarControlT = capnp.lib.capnp._StructModule
 CarParamsT = capnp.lib.capnp._StructModule
+
+# sunnypilot structs (MADS port): plain dataclass mirror of cereal custom.CarParamsSP.
+# Unlike sunnypilot's auto_dataclass version this stays a simple dataclass; the fields
+# are the ones the MADS helpers and the Tesla screen button actually use.
+from dataclasses import dataclass
+
+
+@dataclass
+class CarParamsSP:
+  flags: int = 0        # flags for car specific quirks in sunnypilot
+  safetyParam: int = 0  # flags for sunnypilot's custom safety flags
+  pcmCruiseSpeed: bool = True
+  intelligentCruiseButtonManagementAvailable: bool = False
+  enableGasInterceptor: bool = False

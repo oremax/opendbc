@@ -101,6 +101,9 @@ class CarInterfaceBase(ABC):
 
   def __init__(self, CP: structs.CarParams):
     self.CP = CP
+    # CarParamsSP (sunnypilot MADS port): built by get_car via get_params_sp and
+    # attached after construction; a default instance keeps direct construction safe.
+    self.CP_SP: structs.CarParamsSP = structs.CarParamsSP()
 
     self.frame = 0
     self.v_ego_cluster_seen = False
@@ -164,6 +167,22 @@ class CarInterfaceBase(ABC):
   def _get_params(ret: structs.CarParams, candidate, fingerprint: dict[int, dict[int, int]],
                   car_fw: list[structs.CarParams.CarFw], alpha_long: bool, is_release: bool, docs: bool) -> structs.CarParams:
     raise NotImplementedError
+
+  @classmethod
+  def get_non_essential_params_sp(cls, car_params, candidate: str) -> structs.CarParamsSP:
+    return cls.get_params_sp(car_params, candidate, gen_empty_fingerprint(), list(), False, False, False)
+
+  @classmethod
+  def get_params_sp(cls, car_params, candidate: str, fingerprint: dict[int, dict[int, int]], car_fw: list[structs.CarParams.CarFw], alpha_long: bool,
+                    is_release_sp: bool, docs: bool) -> structs.CarParamsSP:
+    car_params_sp = structs.CarParamsSP()
+
+    return cls._get_params_sp(car_params, car_params_sp, candidate, fingerprint, car_fw, alpha_long, is_release_sp, docs)
+
+  @staticmethod
+  def _get_params_sp(stock_cp: structs.CarParams, ret: structs.CarParamsSP, candidate, fingerprint: dict[int, dict[int, int]],
+                     car_fw: list[structs.CarParams.CarFw], alpha_long: bool, is_release_sp: bool, docs: bool) -> structs.CarParamsSP:
+    return ret
 
   @staticmethod
   def init(CP: structs.CarParams, can_recv: CanRecvCallable, can_send: CanSendCallable):

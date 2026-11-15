@@ -276,6 +276,20 @@ CM_ BO_ 929 "Multiplexed on 2026+ Model Y (Juniper), the restraint signals are o
 CM_ SG_ 929 VCFRONT_driverBuckleStatus "Follows the driver's side on both LHD and RHD cars";
 CM_ SG_ 963 VCRIGHT_frontBuckleSwitch "Raw switch, mirrors VCLEFT_frontBuckleSwitch";
 
+
+BO_ 991 UI_status2: 8 VehicleBus
+ SG_ UI_mobileAppStepCount : 0|16@1+ (1,0) [0|65535] ""  VehicleBus
+ SG_ UI_userRequestSnapshot : 16|1@1+ (1,0) [0|1] ""  VehicleBus
+ SG_ UI_touchDetected : 17|1@1+ (1,0) [0|1] ""  VehicleBus
+ SG_ UI_validDeviceForEUSummon : 18|1@1+ (1,0) [0|1] ""  VehicleBus
+ SG_ UI_locatedAtHome : 19|1@1+ (1,0) [0|1] ""  VehicleBus
+ SG_ UI_locatedAtWork : 20|1@1+ (1,0) [0|1] ""  VehicleBus
+ SG_ UI_locatedAtFavorite : 21|1@1+ (1,0) [0|1] ""  VehicleBus
+ SG_ UI_displayInDarkMode : 22|1@1+ (1,0) [0|1] ""  VehicleBus
+ SG_ UI_userActivity : 23|1@1+ (1,0) [0|1] ""  VehicleBus
+ SG_ UI_activeTouchPoints : 24|8@1+ (1,0) [0|255] ""  VehicleBus
+ SG_ UI_linkState : 32|2@1+ (1,0) [0|3] ""  VehicleBus
+ SG_ UI_sentryModeState : 34|3@1+ (1,0) [0|7] ""  VehicleBus
 VAL_ 568 SpdCtrlLvr_Stat 32 "DN_1ST" 16 "UP_1ST" 8 "DN_2ND" 4 "UP_2ND" 2 "RWD" 1 "FWD" 0 "IDLE" ;
 VAL_ 568 DTR_Dist_Rq 255 "SNA" 200 "ACC_DIST_7" 166 "ACC_DIST_6" 133 "ACC_DIST_5" 100 "ACC_DIST_4" 66 "ACC_DIST_3" 33 "ACC_DIST_2" 0 "ACC_DIST_1" ;
 VAL_ 568 TurnIndLvr_Stat 3 "SNA" 2 "RIGHT" 1 "LEFT" 0 "IDLE" ;

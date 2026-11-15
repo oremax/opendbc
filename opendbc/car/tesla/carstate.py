@@ -4,10 +4,14 @@ from opendbc.car import Bus, structs
 from opendbc.car.common.conversions import Conversions as CV
 from opendbc.car.interfaces import CarStateBase
 from opendbc.car.tesla.values import DBC, CANBUS, GEAR_MAP, STEER_THRESHOLD, TeslaFlags
+from opendbc.sunnypilot.car.tesla.carstate_ext import CarStateExt
 
 class CarState(CarStateBase):
   def __init__(self, CP):
     super().__init__(CP)
+    # CarParamsSP (sunnypilot MADS port): attached by get_car after construction
+    self.CP_SP = None
+    self.carstate_ext = None
     self.can_define = CANDefine(DBC[CP.carFingerprint][Bus.party])
     self.shifter_values = self.can_define.dv["DI_systemStatus"]["DI_gear"]
 
@@ -152,6 +156,12 @@ class CarState(CarStateBase):
       ret.invalidLkasSetting = cp_das_settings.vl["DAS_settings"]["DAS_autosteerEnabled"] != 0
 
     # Buttons # ToDo: add Gap adjust button
+    # MADS screen button (sunnypilot port): multi-finger infotainment touch
+    # becomes an LKAS button event when enabled in CarParamsSP
+    if self.CP_SP is not None:
+      if self.carstate_ext is None:
+        self.carstate_ext = CarStateExt(self.CP, self.CP_SP)
+      self.carstate_ext.update(ret, can_parsers)
 
     # Messages needed by carcontroller
     self.das_control = copy.copy(cp_ap_party.vl["DAS_control"])
