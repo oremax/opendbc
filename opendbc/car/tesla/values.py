@@ -128,6 +128,9 @@ class TeslaSafetyFlags(IntFlag):
   HW4_GEN2 = 4
   # steering override never disengages (Toyota-style); set from the TeslaSteerNoDisengage param
   STEER_NO_DISENGAGE = 8
+  # lateral control allowed while cruise is in STANDBY or engaged (MADS);
+  # set when the fork's MADS toggle (steer_always) is on
+  MADS = 16
 
   # deprecated flags
   DAS_STEERING_3_BIT_DEPRECATED = 2

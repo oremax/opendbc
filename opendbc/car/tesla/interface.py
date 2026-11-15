@@ -17,6 +17,18 @@ def _steer_no_disengage_enabled() -> bool:
     return False
 
 
+def _mads_enabled() -> bool:
+  # The fork's MADS toggle (mici Toggles panel) stores its state in
+  # /data/steer_always.txt; the same file drives controlsd's latActive through
+  # /dev/shm. Mirror it here so the panda only allows lateral control in cruise
+  # STANDBY when the user has MADS on. Any read failure means off (stock behavior).
+  try:
+    with open('/data/steer_always.txt') as f:
+      return int(f.read().strip() or 0) >= 1
+  except Exception:
+    return False
+
+
 def _coop_steering_enabled() -> bool:
   # Optional user toggle: send steering commands as LANE_KEEP_ASSIST (cooperative steering,
   # like stock FSD) instead of ANGLE_CONTROL. Same Params pattern as above.
@@ -44,6 +56,9 @@ class CarInterface(CarInterfaceBase):
 
     if _coop_steering_enabled():
       ret.flags |= TeslaFlags.COOP_STEERING.value
+
+    if _mads_enabled():
+      ret.safetyConfigs[0].safetyParam |= TeslaSafetyFlags.MADS.value
 
     ret.steerLimitTimer = 0.4
     ret.steerActuatorDelay = 0.1

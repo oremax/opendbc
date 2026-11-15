@@ -147,10 +147,12 @@ static void tesla_rx_hook(const CANPacket_t *msg) {
                           (cruise_state == 7);    // PRE_CANCEL
     cruise_engaged = cruise_engaged && !safety.tesla_autopark;
 
-    // MADS: Tesla に ACC メインスイッチは無いので、STANDBY かエンゲージ中を「使える状態」とする
-    //safety.acc_main_on = (cruise_state == 1) || cruise_engaged;   // 1 = STANDBY
-    //safety.lateral_controls_allowed = safety.acc_main_on;
-    //MADSの挙動が危ないので、上記しばらく封印
+    // MADS: Tesla has no ACC main switch, so STANDBY or engaged counts as "usable".
+    // Lateral control is only allowed while the MADS safety flag is set (opt-in via
+    // the fork's MADS toggle); without the flag, steering stays gated on
+    // controls_allowed exactly as stock. Longitudinal is never affected.
+    safety.acc_main_on = (cruise_state == 1) || cruise_engaged;   // 1 = STANDBY
+    safety.lateral_controls_allowed = safety_setup.tesla_mads && safety.acc_main_on;
     
     pcm_cruise_check(cruise_engaged);
   }
@@ -328,6 +330,9 @@ static safety_config tesla_init(uint16_t param) {
 
   const uint16_t TESLA_FLAG_STEER_NO_DISENGAGE = 8;
   safety_setup.tesla_steer_no_disengage = GET_FLAG(param, TESLA_FLAG_STEER_NO_DISENGAGE);
+
+  const uint16_t TESLA_FLAG_MADS = 16;
+  safety_setup.tesla_mads = GET_FLAG(param, TESLA_FLAG_MADS);
 
 #ifdef ALLOW_DEBUG
   const uint16_t TESLA_FLAG_LONGITUDINAL_CONTROL = 1;

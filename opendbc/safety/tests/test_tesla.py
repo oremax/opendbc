@@ -488,6 +488,51 @@ class TestTeslaHW4Gen2SteerNoDisengageSafety(TeslaSteerNoDisengageBase, TestTesl
   SAFETY_PARAM = TeslaSafetyFlags.HW4_GEN2 | TeslaSafetyFlags.STEER_NO_DISENGAGE
 
 
+class TeslaMadsBase:
+  # With the MADS safety flag, lateral control is allowed while cruise is in
+  # STANDBY (not engaged) and drops again when cruise leaves STANDBY/engaged.
+  # controls_allowed (and with it longitudinal) is never raised by MADS.
+  def _cruise_state_msg(self, cruise_state: int):
+    values = {"DI_cruiseState": cruise_state, "DI_autoparkState": 0}
+    return self.packer.make_can_msg_safety("DI_state", 0, values)
+
+  def test_mads_lateral_allowed_in_standby(self):
+    self.assertTrue(self._rx(self._speed_msg(10)))
+    self.assertTrue(self._rx(self._angle_meas_msg(0)))
+
+    # cruise OFF: steering blocked
+    self.assertTrue(self._rx(self._cruise_state_msg(0)))
+    self.assertFalse(self.safety.get_controls_allowed())
+    self.assertFalse(self._tx(self._angle_cmd_msg(0, 1)))
+
+    # STANDBY: lateral allowed with MADS, controls_allowed stays off
+    self.assertTrue(self._rx(self._cruise_state_msg(1)))
+    self.assertFalse(self.safety.get_controls_allowed())
+    self.assertTrue(self._tx(self._angle_cmd_msg(0, 1)))
+
+    # back to OFF: blocked again
+    self.assertTrue(self._rx(self._cruise_state_msg(0)))
+    self.assertFalse(self._tx(self._angle_cmd_msg(0, 1)))
+
+
+class TestTeslaMadsSafety(TeslaMadsBase, TestTeslaStockSafety):
+  SAFETY_PARAM = TeslaSafetyFlags.MADS
+
+
+class TestTeslaHW4Gen2MadsSafety(TeslaMadsBase, TestTeslaHW4Gen2StockSafety):
+  SAFETY_PARAM = TeslaSafetyFlags.HW4_GEN2 | TeslaSafetyFlags.MADS
+
+
+class TestTeslaMadsOffSafety(TestTeslaStockSafety):
+  # Without the MADS safety flag, cruise STANDBY alone must not allow steering
+  def test_mads_standby_blocked_without_flag(self):
+    self.assertTrue(self._rx(self._speed_msg(10)))
+    self.assertTrue(self._rx(self._angle_meas_msg(0)))
+    values = {"DI_cruiseState": 1, "DI_autoparkState": 0}
+    self.assertTrue(self._rx(self.packer.make_can_msg_safety("DI_state", 0, values)))
+    self.assertFalse(self._tx(self._angle_cmd_msg(0, 1)))
+
+
 class TestTeslaIgnition(common.SafetyTestBase):
   DBC = "tesla_model3_party"
   SAFETY_MODEL = None

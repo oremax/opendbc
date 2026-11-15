@@ -393,6 +393,7 @@ typedef struct {
 
   bool tesla_longitudinal;
   bool tesla_steer_no_disengage;
+  bool tesla_mads;
 
   bool toyota_secoc;
   bool toyota_alt_brake;
