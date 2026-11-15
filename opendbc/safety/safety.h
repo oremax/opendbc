@@ -4,6 +4,7 @@
 #include "opendbc/safety/lateral.h"
 #include "opendbc/safety/longitudinal.h"
 #include "opendbc/safety/declarations.h"
+#include "opendbc/safety/mads.h"
 #include "opendbc/safety/can.h"
 
 // all the safety modes
@@ -195,6 +196,9 @@ static bool rx_hook_copy(const CANPacket_t *msg) {
     safety.heartbeat_engaged_mismatches = 0;
   }
 
+  // MADS state machine runs on every received message, like the generic checks
+  mads_state_update();
+
   return valid;
 }
 
@@ -296,6 +300,8 @@ static void heartbeat_check_copy(void) {
   } else {
     safety.heartbeat_engaged_mismatches = 0U;
   }
+
+  mads_heartbeat_engaged_check();
 }
 
 static void relay_malfunction_set(void) {
@@ -442,6 +448,11 @@ void safety_tick(void) {
 void safety_heartbeat(bool engaged) {
   safety_a.state.heartbeat_engaged = engaged;
   safety_b.state.heartbeat_engaged = engaged;
+}
+
+void safety_heartbeat_mads(bool engaged) {
+  safety_a.state.heartbeat_engaged_mads = engaged;
+  safety_b.state.heartbeat_engaged_mads = engaged;
 }
 
 void safety_alternative_experience(int alt_exp) {

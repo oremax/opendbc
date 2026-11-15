@@ -57,6 +57,18 @@ void set_controls_allowed(bool c){
   SAFETY_SET(controls_allowed, c);
 }
 
+bool get_lateral_controls_allowed(void){
+  return safety.lateral_controls_allowed;
+}
+
+void set_heartbeat_engaged_mads(bool c){
+  safety_heartbeat_mads(c);
+}
+
+void heartbeat_check(void){
+  safety_heartbeat_check();
+}
+
 void set_alternative_experience(int mode){
   safety_alternative_experience(mode);
 }

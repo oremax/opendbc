@@ -257,6 +257,7 @@ void speed_mismatch_check(const float speed_2);
 
 void safety_tick(void);
 void safety_heartbeat(bool engaged);
+void safety_heartbeat_mads(bool engaged);
 void safety_heartbeat_check(void);
 void safety_alternative_experience(int alt_exp);
 
@@ -282,6 +283,43 @@ typedef struct {
   int steer_power_last;
   struct sample_t meas;          // last 6 steer curvatures
 } CurvatureSteeringState;
+
+// MADS (ported from sunnypilot): lateral-only control state machine, see mads.h
+typedef enum {
+  MADS_DISENGAGE_REASON_NONE = 0,
+  MADS_DISENGAGE_REASON_BRAKE = 1,
+  MADS_DISENGAGE_REASON_LAG = 2,
+  MADS_DISENGAGE_REASON_BUTTON = 4,
+  MADS_DISENGAGE_REASON_ACC_MAIN_OFF = 8,
+  MADS_DISENGAGE_REASON_NON_PCM_ACC_MAIN_DESYNC = 16,
+  MADS_DISENGAGE_REASON_HEARTBEAT_ENGAGED_MISMATCH = 32,
+  MADS_DISENGAGE_REASON_STEERING_DISENGAGE = 64,
+} MadsDisengageReason;
+
+typedef enum {
+  MADS_EDGE_NO_CHANGE = 0,
+  MADS_EDGE_RISING = 1,
+  MADS_EDGE_FALLING = 2,
+} MadsEdgeTransition;
+
+typedef struct {
+  MadsEdgeTransition transition;
+  bool current;
+  bool previous;
+} MadsBinaryStateTracking;
+
+typedef struct {
+  MadsBinaryStateTracking acc_main;
+  MadsBinaryStateTracking op_controls_allowed;
+  MadsBinaryStateTracking braking;
+  MadsBinaryStateTracking steering_disengage;
+
+  uint32_t active_reason;    // MadsDisengageReason bitmask that actually disengaged controls
+  uint32_t pending_reasons;  // all reasons that would have prevented engagement
+
+  bool active;  // the machine ran with ENABLE_MADS at least once since reset
+  bool controls_requested_lateral;
+} MadsState;
 
 typedef struct {
   // This can be set by the safety hooks
@@ -318,6 +356,11 @@ typedef struct {
   // state for controls_allowed timeout logic
   bool heartbeat_engaged;             // openpilot enabled, passed in heartbeat USB command
   uint32_t heartbeat_engaged_mismatches;  // count of mismatches between heartbeat_engaged and controls_allowed
+
+  // MADS state machine (sunnypilot port), see mads.h
+  MadsState mads;
+  bool heartbeat_engaged_mads;             // MADS enabled, passed in heartbeat USB command
+  uint32_t heartbeat_engaged_mads_mismatches;  // count of mismatches between heartbeat_engaged_mads and lateral_controls_allowed
 
   // for safety modes with angle steering control
   uint32_t rt_angle_msgs;
@@ -393,7 +436,6 @@ typedef struct {
 
   bool tesla_longitudinal;
   bool tesla_steer_no_disengage;
-  bool tesla_mads;
 
   bool toyota_secoc;
   bool toyota_alt_brake;

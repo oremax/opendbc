@@ -8,6 +8,7 @@ from opendbc.car.tesla.carcontroller import get_safety_CP
 from opendbc.car.structs import CarParams
 from opendbc.car.vehicle_model import VehicleModel
 from opendbc.can import CANDefine
+from opendbc.safety import ALTERNATIVE_EXPERIENCE
 import opendbc.safety.tests.common as common
 from opendbc.safety.tests.common import MAX_WRONG_COUNTERS, away_round, round_speed, speeds_within_delta
 
@@ -489,12 +490,45 @@ class TestTeslaHW4Gen2SteerNoDisengageSafety(TeslaSteerNoDisengageBase, TestTesl
 
 
 class TeslaMadsBase:
-  # With the MADS safety flag, lateral control is allowed while cruise is in
-  # STANDBY (not engaged) and drops again when cruise leaves STANDBY/engaged.
+  # MADS (sunnypilot port): with ENABLE_MADS in alternative experience, the
+  # panda state machine in mads.h allows lateral control while cruise is in
+  # STANDBY (not engaged) and drops it when cruise leaves STANDBY/engaged.
   # controls_allowed (and with it longitudinal) is never raised by MADS.
+  MADS_AE = ALTERNATIVE_EXPERIENCE.ENABLE_MADS
+
+  def setUp(self):
+    super().setUp()
+    self.safety.set_alternative_experience(self.MADS_AE)
+
   def _cruise_state_msg(self, cruise_state: int):
     values = {"DI_cruiseState": cruise_state, "DI_autoparkState": 0}
     return self.packer.make_can_msg_safety("DI_state", 0, values)
+
+  def _engage_lateral_standby(self):
+    self.assertTrue(self._rx(self._speed_msg(10)))
+    self.assertTrue(self._rx(self._angle_meas_msg(0)))
+    self.assertTrue(self._rx(self._cruise_state_msg(1)))  # STANDBY
+    self.assertFalse(self.safety.get_controls_allowed())
+    self.assertTrue(self.safety.get_lateral_controls_allowed())
+
+  # MADS override of the stock AngleSteeringSafetyTest test: with ENABLE_MADS,
+  # the rising edge of controls_allowed requests lateral control, and lateral
+  # then stays allowed after controls_allowed drops (that independence is the
+  # point of MADS). So with the actuation bit set, angle commands are allowed
+  # in both phases; with the bit clear, the inactive near-meas rule is unchanged.
+  def test_angle_cmd_when_disabled(self):
+    for controls_allowed in (True, False):
+      self.safety.set_controls_allowed(controls_allowed)
+
+      for steer_control_enabled in (True, False):
+        for angle_meas in np.arange(-90, 91, 10):
+          self._reset_angle_measurement(angle_meas)
+
+          for angle_cmd in np.arange(-90, 91, 10):
+            self._set_prev_desired_angle(angle_cmd)
+
+            should_tx = True if steer_control_enabled else angle_cmd == angle_meas
+            self.assertEqual(should_tx, self._tx(self._angle_cmd_msg(angle_cmd, steer_control_enabled)))
 
   def test_mads_lateral_allowed_in_standby(self):
     self.assertTrue(self._rx(self._speed_msg(10)))
@@ -503,34 +537,122 @@ class TeslaMadsBase:
     # cruise OFF: steering blocked
     self.assertTrue(self._rx(self._cruise_state_msg(0)))
     self.assertFalse(self.safety.get_controls_allowed())
+    self.assertFalse(self.safety.get_lateral_controls_allowed())
     self.assertFalse(self._tx(self._angle_cmd_msg(0, 1)))
 
     # STANDBY: lateral allowed with MADS, controls_allowed stays off
     self.assertTrue(self._rx(self._cruise_state_msg(1)))
     self.assertFalse(self.safety.get_controls_allowed())
+    self.assertTrue(self.safety.get_lateral_controls_allowed())
     self.assertTrue(self._tx(self._angle_cmd_msg(0, 1)))
 
     # back to OFF: blocked again
     self.assertTrue(self._rx(self._cruise_state_msg(0)))
+    self.assertFalse(self.safety.get_lateral_controls_allowed())
+    self.assertFalse(self._tx(self._angle_cmd_msg(0, 1)))
+
+  def test_mads_steering_disengage_exits_lateral(self):
+    self._engage_lateral_standby()
+    self.assertTrue(self._rx(self._angle_meas_msg(0, hands_on_level=3)))
+    self.assertFalse(self.safety.get_lateral_controls_allowed())
+    self.assertFalse(self._tx(self._angle_cmd_msg(0, 1)))
+
+  def test_mads_heartbeat_mismatch_exits_lateral(self):
+    self._engage_lateral_standby()
+
+    # heartbeat says MADS is in use: lateral survives the checks
+    self.safety.set_heartbeat_engaged_mads(True)
+    for _ in range(3):
+      self.safety.heartbeat_check()
+    self.assertTrue(self.safety.get_lateral_controls_allowed())
+
+    # heartbeat stops reporting MADS: lateral exits after 3 mismatches
+    self.safety.set_heartbeat_engaged_mads(False)
+    self.safety.heartbeat_check()
+    self.safety.heartbeat_check()
+    self.assertTrue(self.safety.get_lateral_controls_allowed())
+    self.safety.heartbeat_check()
+    self.assertFalse(self.safety.get_lateral_controls_allowed())
+    self.assertFalse(self._tx(self._angle_cmd_msg(0, 1)))
+
+  def test_mads_runtime_disable_clears_lateral(self):
+    self._engage_lateral_standby()
+    self.safety.set_alternative_experience(0)
+    self.assertTrue(self._rx(self._speed_msg(10)))
+    self.assertFalse(self.safety.get_lateral_controls_allowed())
     self.assertFalse(self._tx(self._angle_cmd_msg(0, 1)))
 
 
+class TeslaMadsDisengageOnBrakeBase(TeslaMadsBase):
+  MADS_AE = ALTERNATIVE_EXPERIENCE.ENABLE_MADS | ALTERNATIVE_EXPERIENCE.MADS_DISENGAGE_LATERAL_ON_BRAKE
+
+  def test_mads_brake_disengages_lateral(self):
+    self._engage_lateral_standby()
+    self.assertTrue(self._rx(self._user_brake_msg(True)))
+    self.assertFalse(self.safety.get_lateral_controls_allowed())
+
+    # releasing the brake does not bring lateral back in disengage mode
+    self.assertTrue(self._rx(self._user_brake_msg(False)))
+    self.assertTrue(self._rx(self._speed_msg(10)))
+    self.assertFalse(self.safety.get_lateral_controls_allowed())
+    self.assertFalse(self._tx(self._angle_cmd_msg(0, 1)))
+
+  def test_mads_brake_pending_reason_without_engagement(self):
+    # a brake press before any engagement is tracked as a pending reason only
+    self.assertTrue(self._rx(self._speed_msg(10)))
+    self.assertTrue(self._rx(self._angle_meas_msg(0)))
+    self.assertTrue(self._rx(self._user_brake_msg(True)))
+    self.assertFalse(self.safety.get_lateral_controls_allowed())
+    self.assertFalse(self._tx(self._angle_cmd_msg(0, 1)))
+
+
+class TeslaMadsPauseOnBrakeBase(TeslaMadsBase):
+  MADS_AE = ALTERNATIVE_EXPERIENCE.ENABLE_MADS | ALTERNATIVE_EXPERIENCE.MADS_PAUSE_LATERAL_ON_BRAKE
+
+  def test_mads_brake_pauses_and_resumes_lateral(self):
+    self._engage_lateral_standby()
+    self.assertTrue(self._rx(self._user_brake_msg(True)))
+    self.assertFalse(self.safety.get_lateral_controls_allowed())
+
+    # brake still held: no resume
+    self.assertTrue(self._rx(self._user_brake_msg(True)))
+    self.assertFalse(self.safety.get_lateral_controls_allowed())
+
+    # brake released and it was the only reason: lateral resumes
+    self.assertTrue(self._rx(self._user_brake_msg(False)))
+    self.assertTrue(self.safety.get_lateral_controls_allowed())
+    self.assertTrue(self._tx(self._angle_cmd_msg(0, 1)))
+
+
 class TestTeslaMadsSafety(TeslaMadsBase, TestTeslaStockSafety):
-  SAFETY_PARAM = TeslaSafetyFlags.MADS
+  pass
 
 
 class TestTeslaHW4Gen2MadsSafety(TeslaMadsBase, TestTeslaHW4Gen2StockSafety):
-  SAFETY_PARAM = TeslaSafetyFlags.HW4_GEN2 | TeslaSafetyFlags.MADS
+  pass
+
+
+class TestTeslaMadsDisengageOnBrakeSafety(TeslaMadsDisengageOnBrakeBase, TestTeslaStockSafety):
+  pass
+
+
+class TestTeslaMadsPauseOnBrakeSafety(TeslaMadsPauseOnBrakeBase, TestTeslaStockSafety):
+  pass
 
 
 class TestTeslaMadsOffSafety(TestTeslaStockSafety):
-  # Without the MADS safety flag, cruise STANDBY alone must not allow steering
-  def test_mads_standby_blocked_without_flag(self):
+  # Without ENABLE_MADS, cruise STANDBY alone must not allow steering
+  def test_mads_standby_blocked_without_ae(self):
     self.assertTrue(self._rx(self._speed_msg(10)))
     self.assertTrue(self._rx(self._angle_meas_msg(0)))
     values = {"DI_cruiseState": 1, "DI_autoparkState": 0}
     self.assertTrue(self._rx(self.packer.make_can_msg_safety("DI_state", 0, values)))
+    self.assertFalse(self.safety.get_lateral_controls_allowed())
     self.assertFalse(self._tx(self._angle_cmd_msg(0, 1)))
+
+    # the MADS heartbeat check is inert without ENABLE_MADS
+    self.safety.heartbeat_check()
+    self.assertFalse(self.safety.get_lateral_controls_allowed())
 
 
 class TestTeslaIgnition(common.SafetyTestBase):
